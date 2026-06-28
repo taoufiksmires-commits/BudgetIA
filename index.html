@@ -193,12 +193,12 @@ const ENSEIGNES_BRICO = ["leroy merlin","castorama","brico depot","bricorama","m
 const CATS_POLY = ["outillage","elec","plomberie","deco","mobilier","divers"]; // peuvent servir "la maison"
 
 /* ============================================================
-   CONFIGURATION SUPABASE  — à renseigner avant déploiement
-   (Supabase → Settings → API : Project URL + clé "anon public")
+   CONFIGURATION BASE  — à renseigner avant déploiement
+   (base → Settings → API : Project URL + clé "anon public")
    La clé anon est publique : la sécurité repose sur le RLS + auth.
    ============================================================ */
-const SUPABASE_URL = "https://VOTRE-PROJET.supabase.co";
-const SUPABASE_ANON_KEY = "VOTRE_CLE_ANON_PUBLIC";
+const SUPABASE_URL = "https://rmfkstsmwonodibfukll.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtZmtzdHNtd29ub2RpYmZ1a2xsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2NDczNTgsImV4cCI6MjA5ODIyMzM1OH0.XeYy520ja8RSrPm6ccmSWypBTICEJyqGHERsM6ZJlJs";
 
 let sb = null, currentUser = null, uid2 = ()=> (crypto.randomUUID? crypto.randomUUID() : uid());
 function configured(){ return SUPABASE_URL && SUPABASE_ANON_KEY && !SUPABASE_URL.includes("VOTRE") && !SUPABASE_ANON_KEY.includes("VOTRE"); }
