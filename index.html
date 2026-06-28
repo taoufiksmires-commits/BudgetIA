@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0f1419" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<title>BudgetIA</title>
+<link rel="manifest" href='data:application/manifest+json,{"name":"BudgetIA","short_name":"BudgetIA","start_url":".","display":"standalone","background_color":"%230f1419","theme_color":"%230f1419","icons":[]}' />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#0f1419; --surface:#1a2129; --surface2:#232d38; --border:#2e3a47;
+    --text:#e6edf3; --muted:#8b9aa8; --faint:#5b6b78;
+    --amber:#f5a623; --amber-soft:#ffb648; --teal:#2dd4bf; --teal-dim:#1c8a7e;
+    --danger:#f4525f; --good:#3fb950; --warn:#e3b341;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --r:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--text); font-family:var(--sans);
+    -webkit-font-smoothing:antialiased; line-height:1.45;
+    padding-bottom:84px;
+  }
+  .num{font-family:var(--mono); font-variant-numeric:tabular-nums; letter-spacing:-.01em}
+  header.app{
+    position:sticky; top:0; z-index:30; background:rgba(15,20,25,.88);
+    backdrop-filter:blur(12px); border-bottom:1px solid var(--border);
+    padding:14px 16px calc(14px + env(safe-area-inset-top)) 16px;
+    padding-top:calc(14px + env(safe-area-inset-top));
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+  }
+  .brand{display:flex; align-items:baseline; gap:8px}
+  .brand b{font-size:19px; font-weight:800; letter-spacing:-.02em}
+  .brand .ia{color:var(--amber)}
+  .brand small{color:var(--faint); font-size:11px; font-family:var(--mono)}
+  .ai-pill{font-size:10.5px; font-family:var(--mono); padding:4px 8px; border-radius:999px;
+    border:1px solid var(--border); color:var(--muted); white-space:nowrap}
+  .ai-pill.on{color:var(--teal); border-color:var(--teal-dim)}
+  main{max-width:760px; margin:0 auto; padding:16px}
+  h2.view-title{font-size:14px; text-transform:uppercase; letter-spacing:.12em;
+    color:var(--muted); font-weight:700; margin:4px 0 16px}
+  /* nav */
+  nav.tabs{
+    position:fixed; bottom:0; left:0; right:0; z-index:30;
+    background:rgba(20,27,34,.96); backdrop-filter:blur(12px);
+    border-top:1px solid var(--border); display:flex;
+    padding:6px 6px calc(6px + env(safe-area-inset-bottom)) 6px;
+  }
+  nav.tabs button{
+    flex:1; background:none; border:none; color:var(--faint); font-family:var(--sans);
+    padding:8px 2px; font-size:10.5px; font-weight:600; cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; gap:3px; border-radius:10px;
+  }
+  nav.tabs button .ic{font-size:19px; line-height:1}
+  nav.tabs button.active{color:var(--amber)}
+  /* cards */
+  .card{background:var(--surface); border:1px solid var(--border); border-radius:var(--r); padding:16px; margin-bottom:14px}
+  .card.tap{cursor:pointer; transition:border-color .15s, transform .05s}
+  .card.tap:active{transform:scale(.995)}
+  .row{display:flex; align-items:center; gap:12px}
+  .row.between{justify-content:space-between}
+  .spacer{flex:1}
+  .muted{color:var(--muted)} .faint{color:var(--faint)}
+  .big{font-size:24px; font-weight:800}
+  .label{font-size:11px; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); font-weight:700}
+  /* gauge */
+  .gauge{height:9px; border-radius:6px; background:var(--surface2); overflow:hidden; margin-top:10px; position:relative}
+  .gauge > i{display:block; height:100%; border-radius:6px; transition:width .4s ease}
+  .tag{display:inline-flex; align-items:center; gap:5px; font-size:11px; font-family:var(--mono);
+    padding:3px 8px; border-radius:7px; background:var(--surface2); color:var(--muted); border:1px solid var(--border)}
+  .tag.amber{color:var(--amber); border-color:#5a4216}
+  .tag.teal{color:var(--teal); border-color:var(--teal-dim)}
+  .tag.danger{color:var(--danger); border-color:#5a2024}
+  .tag.good{color:var(--good); border-color:#244a2a}
+  /* buttons */
+  button.btn{font-family:var(--sans); font-weight:700; font-size:14px; border-radius:11px;
+    padding:12px 16px; cursor:pointer; border:1px solid var(--border); background:var(--surface2); color:var(--text)}
+  button.btn.primary{background:var(--amber); color:#1a1205; border-color:var(--amber)}
+  button.btn.teal{background:var(--teal); color:#06231f; border-color:var(--teal)}
+  button.btn.ghost{background:transparent}
+  button.btn.danger{background:transparent; color:var(--danger); border-color:#5a2024}
+  button.btn.block{width:100%}
+  button.btn.sm{padding:8px 12px; font-size:12.5px; border-radius:9px}
+  .fab{position:fixed; right:18px; bottom:calc(78px + env(safe-area-inset-bottom)); z-index:25;
+    width:58px; height:58px; border-radius:50%; background:var(--amber); color:#1a1205;
+    border:none; font-size:30px; font-weight:300; cursor:pointer; box-shadow:0 8px 24px rgba(0,0,0,.45);
+    display:flex; align-items:center; justify-content:center}
+  /* inputs */
+  input,select,textarea{font-family:var(--sans); font-size:15px; color:var(--text);
+    background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:11px 12px; width:100%}
+  input.num,select.num{font-family:var(--mono)}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--amber); outline-offset:-1px; border-color:var(--amber)}
+  label.field{display:block; margin-bottom:12px}
+  label.field > span{display:block; font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); font-weight:700; margin-bottom:6px}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+  .grid3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px}
+  /* modal */
+  .overlay{position:fixed; inset:0; z-index:50; background:rgba(5,8,11,.72); backdrop-filter:blur(4px);
+    display:flex; align-items:flex-end; justify-content:center}
+  .sheet{background:var(--surface); width:100%; max-width:760px; max-height:92vh; overflow-y:auto;
+    border-radius:20px 20px 0 0; border:1px solid var(--border); border-bottom:none;
+    padding:18px 16px calc(28px + env(safe-area-inset-bottom)) 16px}
+  .sheet h3{margin:2px 0 16px; font-size:18px; font-weight:800; letter-spacing:-.01em}
+  .sheet-grip{width:38px; height:4px; border-radius:3px; background:var(--border); margin:0 auto 14px}
+  /* article rows */
+  .art{background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:12px; margin-bottom:10px}
+  .art .top{display:grid; grid-template-columns:1fr 64px 86px; gap:8px; margin-bottom:8px}
+  .art .alloc{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+  .art .src{font-size:10px; font-family:var(--mono); color:var(--faint); margin-top:7px}
+  .art select{font-size:13px; padding:9px 10px}
+  .empty{text-align:center; padding:48px 20px; color:var(--muted)}
+  .empty .ic{font-size:40px; opacity:.5}
+  .empty h4{margin:14px 0 6px; color:var(--text); font-weight:700}
+  .seg{display:flex; gap:6px; background:var(--surface2); padding:4px; border-radius:11px; border:1px solid var(--border)}
+  .seg button{flex:1; background:none; border:none; color:var(--muted); padding:8px; border-radius:8px; font-weight:700; font-size:12.5px; cursor:pointer; font-family:var(--sans)}
+  .seg button.on{background:var(--amber); color:#1a1205}
+  .toast{position:fixed; left:50%; transform:translateX(-50%); bottom:calc(96px + env(safe-area-inset-bottom));
+    background:var(--surface2); color:var(--text); border:1px solid var(--border); padding:11px 16px; border-radius:12px;
+    z-index:80; font-size:13px; font-weight:600; box-shadow:0 8px 24px rgba(0,0,0,.4); opacity:0; transition:opacity .25s, transform .25s}
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(-6px)}
+  .toast.err{border-color:#5a2024; color:#ffb4b9}
+  .bar-row{display:flex; align-items:center; gap:10px; margin-bottom:9px}
+  .bar-row .name{width:120px; font-size:12.5px; color:var(--muted); flex:none; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .bar-track{flex:1; height:8px; background:var(--surface2); border-radius:5px; overflow:hidden}
+  .bar-track > i{display:block; height:100%; background:var(--teal); border-radius:5px}
+  .bar-val{width:78px; text-align:right; font-size:12.5px}
+  hr.sep{border:none; border-top:1px solid var(--border); margin:16px 0}
+  .hint{font-size:12px; color:var(--faint); line-height:1.5}
+  .kbd{font-family:var(--mono); font-size:11px; background:var(--surface2); padding:1px 6px; border-radius:5px; border:1px solid var(--border)}
+  .scan-drop{border:1.5px dashed var(--border); border-radius:14px; padding:26px; text-align:center; color:var(--muted); cursor:pointer}
+  .scan-drop.busy{opacity:.6; pointer-events:none}
+  .del-x{background:none;border:none;color:var(--faint); font-size:18px; cursor:pointer; padding:2px 6px}
+</style>
+</head>
+<body>
+<header class="app">
+  <div class="brand"><b>Budget<span class="ia">IA</span></b><small id="storeMode"></small></div>
+  <div id="aiPill" class="ai-pill">IA désactivée</div>
+</header>
+<main id="app"></main>
+<button class="fab" id="fab" title="Nouvel achat">+</button>
+<nav class="tabs" id="tabs">
+  <button data-tab="dashboard" class="active"><span class="ic">▦</span>Tableau</button>
+  <button data-tab="achats"><span class="ic">🧾</span>Achats</button>
+  <button data-tab="budgets"><span class="ic">◑</span>Budgets</button>
+  <button data-tab="analyses"><span class="ic">📈</span>Analyses</button>
+  <button data-tab="reglages"><span class="ic">⚙</span>Réglages</button>
+</nav>
+<div id="modal"></div>
+<div id="toast" class="toast"></div>
+
+<script>
+"use strict";
+/* ============================================================
+   BudgetIA — PWA mono-fichier. IA facultative et isolée.
+   Stockage local (localStorage) avec repli mémoire si bloqué.
+   ============================================================ */
+
+/* ---------- Helpers ---------- */
+const $ = s => document.querySelector(s);
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const esc = s => String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const eur = new Intl.NumberFormat("fr-FR",{style:"currency",currency:"EUR"});
+const fmtE = n => eur.format(Number(n)||0);
+const todayISO = () => new Date().toISOString().slice(0,10);
+const num = v => { const x = parseFloat(String(v).replace(",",".")); return isNaN(x)?0:x; };
+const normalise = s => String(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim();
+const monthOf = iso => (iso||"").slice(0,7);
+const yearOf = iso => (iso||"").slice(0,4);
+const fmtDateFr = iso => { if(!iso) return ""; const [y,m,d]=iso.split("-"); return `${d}/${m}/${y}`; };
+
+/* ---------- Référentiels par défaut ---------- */
+const CATS = [
+  {id:"alim", nom:"Alimentation", kw:["lait","pain","pates","riz","legume","fruit","viande","poisson","yaourt","fromage","oeuf","cafe","eau","jus","biscuit","conserve","farine","sucre","huile","beurre","pomme","banane","poulet","epicerie","chocolat","biere","vin"]},
+  {id:"hygiene", nom:"Hygiène & entretien", kw:["savon","shampoing","lessive","papier toilette","nettoyant","gel douche","dentifrice","eponge","sopalin","javel","mouchoir","deodorant"]},
+  {id:"travaux", nom:"Travaux & matériaux", kw:["platre","ciment","peinture","enduit","vis","cheville","placo","carrelage","colle","mortier","sable","bois","planche","isolant","laine","beton","joint","bande","sous couche","primaire","gravillon","parpaing","plaque"]},
+  {id:"outillage", nom:"Outillage", kw:["perceuse","marteau","echelle","scie","tournevis","niveau","pince","cle","disque","foret","meche","escabeau","ponceuse","truelle","spatule","rouleau","pinceau","bache"]},
+  {id:"elec", nom:"Électricité", kw:["cable","prise","interrupteur","ampoule","disjoncteur","gaine","knx","douille","spot","luminaire elec","tableau elec","va et vient","rallonge","multiprise","domotique"]},
+  {id:"plomberie", nom:"Plomberie", kw:["tuyau","robinet","siphon","raccord","flexible","mitigeur","pvc","cuivre","vanne","collier","teflon"]},
+  {id:"deco", nom:"Décoration", kw:["rideau","tableau deco","tapis","cadre","miroir","bougie","vase","store","coussin","papier peint"]},
+  {id:"mobilier", nom:"Mobilier", kw:["meuble","table","chaise","armoire","lit","commode","etagere","canape","bureau","tabouret"]},
+  {id:"jardin", nom:"Jardin", kw:["terreau","plante","graine","tondeuse","engrais","pot","arbuste","gazon","tuteur"]},
+  {id:"bebe", nom:"Bébé & puériculture", kw:["couche","biberon","lait infantile","lingette","tetine","poussette","body","gigoteuse","bavoir"]},
+  {id:"divers", nom:"Divers", kw:[]},
+];
+const ENSEIGNES_ALIM = ["carrefour","leclerc","lidl","auchan","intermarche","casino","monoprix","aldi","super u","hyper u","franprix","cora","picard","grand frais","biocoop"];
+const ENSEIGNES_BRICO = ["leroy merlin","castorama","brico depot","bricorama","mr bricolage","weldom","point p","bricomarche","gedimat","brico cash","bricoman"];
+const CATS_POLY = ["outillage","elec","plomberie","deco","mobilier","divers"]; // peuvent servir "la maison"
+
+/* ============================================================
+   CONFIGURATION SUPABASE  — à renseigner avant déploiement
+   (Supabase → Settings → API : Project URL + clé "anon public")
+   La clé anon est publique : la sécurité repose sur le RLS + auth.
+   ============================================================ */
+const SUPABASE_URL = "https://VOTRE-PROJET.supabase.co";
+const SUPABASE_ANON_KEY = "VOTRE_CLE_ANON_PUBLIC";
+
+let sb = null, currentUser = null, uid2 = ()=> (crypto.randomUUID? crypto.randomUUID() : uid());
+function configured(){ return SUPABASE_URL && SUPABASE_ANON_KEY && !SUPABASE_URL.includes("VOTRE") && !SUPABASE_ANON_KEY.includes("VOTRE"); }
+
+/* ---------- Réglages locaux (par appareil) ---------- */
+const SKEY = "budgetia_settings";
+function loadSettings(){
+  let s = {ai:false, apiKey:"", model:"claude-sonnet-4-6", tolerance:0.5};
+  try{ const r=localStorage.getItem(SKEY); if(r) s=Object.assign(s, JSON.parse(r)); }catch(e){}
+  return s;
+}
+function saveSettings(){ try{ localStorage.setItem(SKEY, JSON.stringify(S.settings)); }catch(e){} }
+
+/* ---------- État en mémoire (cache des données Supabase) ---------- */
+let S = {
+  settings: loadSettings(),
+  categories: CATS.map(c=>({id:c.id, nom:c.nom})),
+  keywords: CATS,
+  budgets:[], tickets:[], articles:[], memoire:{},
+};
+function save(){ saveSettings(); } /* compat : seuls les réglages sont locaux */
+
+/* ---------- Mapping DB (snake_case) <-> app (camelCase) ---------- */
+const fromBudget = r => ({id:r.id, nom:r.nom, type:r.type, periodicite:r.periodicite, alloue:Number(r.alloue)||0, statut:r.statut, couleur:r.couleur, desc:r.description||"", debut:r.debut});
+const toBudget   = b => ({id:b.id, nom:b.nom, type:b.type, periodicite:b.periodicite||"mensuel", alloue:Number(b.alloue)||0, statut:b.statut||"ouvert", couleur:b.couleur, description:b.desc||"", debut:b.debut||todayISO()});
+const fromTicket = r => ({id:r.id, enseigne:r.enseigne, date:r.date, source:r.source, total:Number(r.total)||0});
+const toTicket   = t => ({id:t.id, enseigne:t.enseigne, date:t.date, source:t.source, total:Number(t.total)||0});
+const fromArticle= r => ({id:r.id, ticketId:r.ticket_id, libelle:r.libelle, quantite:Number(r.quantite)||1, prixUnitaire:Number(r.prix_unitaire)||0, prixTotal:Number(r.prix_total)||0, budgetId:r.budget_id||"", categorieId:r.categorie_id||"divers"});
+const toArticle  = a => ({id:a.id, ticket_id:a.ticketId, libelle:a.libelle, quantite:Number(a.quantite)||1, prix_unitaire:Number(a.prixUnitaire)||0, prix_total:Number(a.prixTotal)||0, budget_id:a.budgetId||null, categorie_id:a.categorieId||"divers"});
+
+/* ---------- Couche base de données ---------- */
+async function dbLoadAll(){
+  const [bg, tk, ar, mm, ct] = await Promise.all([
+    sb.from("budgets").select("*"),
+    sb.from("tickets").select("*"),
+    sb.from("articles").select("*"),
+    sb.from("memoire_affectation").select("*"),
+    sb.from("categories").select("*"),
+  ]);
+  const err = bg.error||tk.error||ar.error||mm.error||ct.error;
+  if(err) throw new Error(err.message);
+  S.budgets  = (bg.data||[]).map(fromBudget);
+  S.tickets  = (tk.data||[]).map(fromTicket);
+  S.articles = (ar.data||[]).map(fromArticle);
+  S.categories = (ct.data && ct.data.length) ? ct.data.map(c=>({id:c.id, nom:c.nom})) : CATS.map(c=>({id:c.id, nom:c.nom}));
+  S.memoire = {};
+  (mm.data||[]).forEach(m=>{ S.memoire[m.libelle_normalise] = {budgetId:m.budget_id||"", categorieId:m.categorie_id||"divers"}; });
+}
+async function dbInsertBudget(b){ const {error}=await sb.from("budgets").insert(toBudget(b)); if(error) throw error; }
+async function dbUpdateBudget(id, patch){ const {error}=await sb.from("budgets").update(patch).eq("id",id); if(error) throw error; }
+async function dbDeleteBudget(id){ const {error}=await sb.from("budgets").delete().eq("id",id); if(error) throw error; }
+async function dbInsertTicket(t){ const {error}=await sb.from("tickets").insert(toTicket(t)); if(error) throw error; }
+async function dbInsertArticles(arr){ if(!arr.length) return; const {error}=await sb.from("articles").insert(arr.map(toArticle)); if(error) throw error; }
+async function dbDeleteTicket(id){ const {error}=await sb.from("tickets").delete().eq("id",id); if(error) throw error; }
+async function dbUpsertMemoire(norm, budgetId, categorieId){ const {error}=await sb.from("memoire_affectation").upsert({libelle_normalise:norm, budget_id:budgetId||null, categorie_id:categorieId||"divers", maj:new Date().toISOString()}); if(error) throw error; }
+
+/* ---------- Moteur d'affectation (déterministe, sans IA) ---------- */
+function categorieParMotCle(libelle){
+  const n = normalise(libelle);
+  for(const c of S.keywords){
+    for(const k of (c.kw||[])){ if(k && n.includes(normalise(k))) return c.id; }
+  }
+  return "divers";
+}
+function typeEnseigne(enseigne){
+  const n = normalise(enseigne);
+  if(ENSEIGNES_BRICO.some(e=>n.includes(e))) return "bricolage";
+  if(ENSEIGNES_ALIM.some(e=>n.includes(e))) return "alimentaire";
+  return null;
+}
+function budgetsOuverts(){ return S.budgets.filter(b=>b.statut==="ouvert"); }
+function projetsTravauxOuverts(){
+  // projets ponctuels ouverts = chantiers de rénovation
+  return budgetsOuverts().filter(b=>b.type==="ponctuel");
+}
+function budgetCoursesOuvert(){
+  return budgetsOuverts().find(b=>/cours/i.test(b.nom)) || budgetsOuverts().find(b=>b.type==="recurrent");
+}
+function budgetMaison(){
+  return budgetsOuverts().find(b=>b.id==="b_maison") || budgetsOuverts().find(b=>/maison/i.test(b.nom));
+}
+/* Renvoie {budgetId, categorieId, source, confiance} */
+function suggerer(libelle, enseigne){
+  const n = normalise(libelle);
+  // 1. Mémoire des corrections
+  if(n && S.memoire[n]){
+    const m = S.memoire[n];
+    if(budgetsOuverts().some(b=>b.id===m.budgetId)){
+      return {budgetId:m.budgetId, categorieId:m.categorieId, source:"mémoire", confiance:"haute"};
+    }
+  }
+  const cat = categorieParMotCle(libelle);
+  const ens = typeEnseigne(enseigne);
+  const estTravaux = (cat==="travaux") || (cat==="outillage" && false);
+  const projets = projetsTravauxOuverts();
+
+  // 2/3. Matériaux ou enseigne bricolage -> projet de travaux
+  if(cat==="travaux" || ens==="bricolage"){
+    if(projets.length===1) return {budgetId:projets[0].id, categorieId:cat, source:"projet unique", confiance:"haute"};
+    if(projets.length>1) return {budgetId:"", categorieId:cat, source:"plusieurs projets — à choisir", confiance:"basse"};
+    // pas de chantier ouvert -> retombe sur Maison si polyvalent
+  }
+  // 4. Alimentaire -> budget courses
+  if(cat==="alim" || cat==="hygiene" || ens==="alimentaire"){
+    const bc = budgetCoursesOuvert();
+    if(bc) return {budgetId:bc.id, categorieId:cat, source:"courses", confiance:"moyenne"};
+  }
+  // 5. Polyvalent -> Maison (général)
+  if(CATS_POLY.includes(cat)){
+    const bm = budgetMaison();
+    if(bm) return {budgetId:bm.id, categorieId:cat, source:"polyvalent → Maison", confiance:"moyenne"};
+  }
+  // 6. Repli
+  return {budgetId:"", categorieId:cat, source:"non affecté", confiance:"basse"};
+}
+function memoriser(libelle, budgetId, categorieId){
+  const n = normalise(libelle);
+  if(!n) return;
+  S.memoire[n] = {budgetId, categorieId};
+}
+
+/* ---------- Calculs de consommation ---------- */
+function articlesDuBudget(budgetId){ return S.articles.filter(a=>a.budgetId===budgetId); }
+function ticketDe(a){ return S.tickets.find(t=>t.id===a.ticketId); }
+function periodeArticle(a){ const t=ticketDe(a); return t? t.date : ""; }
+function consommation(budget, periode){
+  // periode = {type:'mois'|'annee'|'tout'|'custom', key, from, to}
+  let arts = articlesDuBudget(budget.id);
+  if(budget.type==="recurrent" && (!periode || periode.type==="auto")){
+    const mk = monthOf(todayISO());
+    arts = arts.filter(a=>monthOf(periodeArticle(a))===mk);
+  } else if(periode && periode.type==="mois"){
+    arts = arts.filter(a=>monthOf(periodeArticle(a))===periode.key);
+  } else if(periode && periode.type==="annee"){
+    arts = arts.filter(a=>yearOf(periodeArticle(a))===periode.key);
+  } else if(periode && periode.type==="custom"){
+    arts = arts.filter(a=>{ const d=periodeArticle(a); return d>=periode.from && d<=periode.to; });
+  }
+  return arts.reduce((s,a)=>s+(num(a.prixTotal)),0);
+}
+function couleurJauge(pct){ return pct>100?"var(--danger)": pct>85?"var(--warn)":"var(--teal)"; }
+
+/* ---------- État de navigation ---------- */
+let currentTab = "dashboard";
+let draft = null; // brouillon d'achat en cours
+
+/* ---------- Rendu ---------- */
+function render(){
+  $("#storeMode").textContent = currentUser ? currentUser.email : "Supabase";
+  const p = $("#aiPill");
+  if(S.settings.ai && S.settings.apiKey){ p.textContent="IA active"; p.className="ai-pill on"; }
+  else { p.textContent="IA désactivée"; p.className="ai-pill"; }
+  document.querySelectorAll("#tabs button").forEach(b=>b.classList.toggle("active", b.dataset.tab===currentTab));
+  const v = {dashboard:viewDashboard, achats:viewAchats, budgets:viewBudgets, analyses:viewAnalyses, reglages:viewReglages}[currentTab];
+  $("#app").innerHTML = v();
+  wire();
+}
+
+function gaugeCard(b){
+  const cons = consommation(b);
+  const pct = b.alloue>0 ? Math.round(cons/b.alloue*100) : 0;
+  const reste = b.alloue - cons;
+  const col = couleurJauge(pct);
+  const periodLabel = b.type==="recurrent" ? "ce mois" : "total";
+  const statut = b.statut==="cloture" ? `<span class="tag">clôturé</span>` : "";
+  return `<div class="card tap" data-budget="${b.id}">
+    <div class="row between">
+      <div class="row" style="gap:9px"><span style="width:10px;height:10px;border-radius:3px;background:${b.couleur||'var(--teal)'};display:inline-block"></span>
+      <b style="font-size:15px">${esc(b.nom)}</b></div>
+      <span class="tag ${b.type==='ponctuel'?'amber':''}">${b.type==='ponctuel'?'projet':b.periodicite||'récurrent'}</span>
+    </div>
+    <div class="row between" style="margin-top:12px; align-items:flex-end">
+      <div><div class="label">${periodLabel}</div><div class="big num">${fmtE(cons)}</div></div>
+      <div style="text-align:right"><div class="label">${b.alloue>0?'alloué':'sans plafond'}</div>
+        <div class="num muted" style="font-size:15px">${b.alloue>0?fmtE(b.alloue):'—'}</div></div>
+    </div>
+    ${b.alloue>0?`<div class="gauge"><i style="width:${Math.min(pct,100)}%;background:${col}"></i></div>
+      <div class="row between" style="margin-top:7px">
+        <span class="num" style="font-size:12px;color:${col}">${pct}%</span>
+        <span class="num faint" style="font-size:12px">${reste>=0?'reste '+fmtE(reste):'dépassé de '+fmtE(-reste)}</span>
+      </div>`:`<div class="hint" style="margin-top:8px">${statut||'Aucun plafond défini — suivi du cumul'}</div>`}
+  </div>`;
+}
+
+function viewDashboard(){
+  const ouverts = budgetsOuverts();
+  const totalMois = ouverts.filter(b=>b.type==="recurrent").reduce((s,b)=>s+consommation(b),0);
+  const nbAchats = S.tickets.length;
+  let html = `<h2 class="view-title">Tableau de bord</h2>`;
+  html += `<div class="card"><div class="row between">
+      <div><div class="label">Dépenses récurrentes — ce mois</div><div class="big num">${fmtE(totalMois)}</div></div>
+      <div style="text-align:right"><div class="label">Achats</div><div class="big num">${nbAchats}</div></div>
+    </div></div>`;
+  if(ouverts.length===0){
+    html += emptyState("◑","Aucun budget","Créez un budget projet ou récurrent pour suivre vos dépenses.","Créer un budget","newBudget");
+  } else {
+    html += ouverts.map(gaugeCard).join("");
+  }
+  return html;
+}
+
+function viewBudgets(){
+  let html = `<h2 class="view-title">Budgets</h2>`;
+  html += `<button class="btn primary block" id="newBudget" style="margin-bottom:14px">+ Nouveau budget</button>`;
+  const ouverts = S.budgets.filter(b=>b.statut==="ouvert");
+  const clos = S.budgets.filter(b=>b.statut==="cloture");
+  if(ouverts.length===0 && clos.length===0) return html + emptyState("◑","Aucun budget","","","");
+  html += ouverts.map(gaugeCard).join("");
+  if(clos.length){ html += `<div class="label" style="margin:18px 0 10px">Clôturés</div>` + clos.map(gaugeCard).join(""); }
+  return html;
+}
+
+function viewAchats(){
+  let html = `<h2 class="view-title">Achats</h2>`;
+  if(S.tickets.length===0) return html + emptyState("🧾","Aucun achat","Scannez un ticket ou saisissez un achat à la main.","Nouvel achat","fab2");
+  const tickets = [...S.tickets].sort((a,b)=> (b.date+b.id).localeCompare(a.date+a.id));
+  html += tickets.map(t=>{
+    const arts = S.articles.filter(a=>a.ticketId===t.id);
+    const tot = arts.reduce((s,a)=>s+num(a.prixTotal),0);
+    return `<div class="card tap" data-ticket="${t.id}">
+      <div class="row between">
+        <div><b>${esc(t.enseigne||"Achat")}</b><div class="faint" style="font-size:12px">${fmtDateFr(t.date)} · ${arts.length} article${arts.length>1?'s':''} · <span class="tag" style="padding:1px 6px">${t.source}</span></div></div>
+        <div class="num big" style="font-size:18px">${fmtE(tot)}</div>
+      </div></div>`;
+  }).join("");
+  return html;
+}
+
+/* ---------- Analyses ---------- */
+let anaPeriode = {type:"mois", key:monthOf(todayISO())};
+function viewAnalyses(){
+  let html = `<h2 class="view-title">Analyses</h2>`;
+  // Sélecteur de période
+  const moisDispo = [...new Set(S.tickets.map(t=>monthOf(t.date)))].filter(Boolean).sort().reverse();
+  const anneesDispo = [...new Set(S.tickets.map(t=>yearOf(t.date)))].filter(Boolean).sort().reverse();
+  html += `<div class="card">
+    <div class="label" style="margin-bottom:8px">Période</div>
+    <div class="grid2">
+      <select id="anaType" class="num">
+        <option value="mois" ${anaPeriode.type==="mois"?"selected":""}>Par mois</option>
+        <option value="annee" ${anaPeriode.type==="annee"?"selected":""}>Par année</option>
+        <option value="tout" ${anaPeriode.type==="tout"?"selected":""}>Tout</option>
+      </select>
+      <select id="anaKey" class="num" ${anaPeriode.type==="tout"?"disabled":""}>
+        ${anaPeriode.type==="annee"
+          ? anneesDispo.map(y=>`<option ${anaPeriode.key===y?"selected":""}>${y}</option>`).join("")
+          : moisDispo.map(m=>`<option value="${m}" ${anaPeriode.key===m?"selected":""}>${m}</option>`).join("")}
+      </select>
+    </div>
+  </div>`;
+
+  // Budget vs consommation sur la période
+  const per = anaPeriode.type==="tout" ? {type:"custom",from:"0000",to:"9999"} : anaPeriode;
+  html += `<div class="card"><div class="label" style="margin-bottom:12px">Consommation vs budget</div>`;
+  const bs = S.budgets;
+  if(bs.length===0) html += `<div class="hint">Aucun budget.</div>`;
+  bs.forEach(b=>{
+    const c = consommation(b, per);
+    if(c===0 && b.statut==="cloture") return;
+    const pct = b.alloue>0? Math.min(Math.round(c/b.alloue*100),999):0;
+    const w = b.alloue>0? Math.min(c/b.alloue*100,100): (c>0?100:0);
+    html += `<div class="bar-row"><div class="name">${esc(b.nom)}</div>
+      <div class="bar-track"><i style="width:${w}%;background:${b.alloue>0?couleurJauge(pct):'var(--faint)'}"></i></div>
+      <div class="bar-val num">${fmtE(c)}</div></div>`;
+  });
+  html += `</div>`;
+
+  // Répartition par catégorie
+  const arts = articlesPourPeriode(per);
+  const parCat = {};
+  arts.forEach(a=>{ const c=a.categorieId||"divers"; parCat[c]=(parCat[c]||0)+num(a.prixTotal); });
+  const cats = Object.entries(parCat).sort((x,y)=>y[1]-x[1]);
+  const maxCat = cats.length? cats[0][1]:1;
+  html += `<div class="card"><div class="label" style="margin-bottom:12px">Répartition par catégorie</div>`;
+  if(cats.length===0) html += `<div class="hint">Pas de données sur la période.</div>`;
+  cats.forEach(([cid,v])=>{
+    const nom = (S.categories.find(c=>c.id===cid)||{}).nom || cid;
+    html += `<div class="bar-row"><div class="name">${esc(nom)}</div>
+      <div class="bar-track"><i style="width:${Math.round(v/maxCat*100)}%"></i></div>
+      <div class="bar-val num">${fmtE(v)}</div></div>`;
+  });
+  html += `</div>`;
+
+  // Comparaison de prix entre deux années
+  html += viewComparaisonPrix(anneesDispo);
+  return html;
+}
+function articlesPourPeriode(per){
+  return S.articles.filter(a=>{
+    const d = periodeArticle(a);
+    if(per.type==="mois") return monthOf(d)===per.key;
+    if(per.type==="annee") return yearOf(d)===per.key;
+    if(per.type==="custom") return d>=per.from && d<=per.to;
+    return true;
+  });
+}
+function viewComparaisonPrix(annees){
+  // produits = libellés normalisés présents sur >=2 années différentes
+  const map = {}; // norm -> {label, years:{y:{sum,qty}}}
+  S.articles.forEach(a=>{
+    const y = yearOf(periodeArticle(a)); if(!y) return;
+    const n = normalise(a.libelle); if(!n) return;
+    map[n] = map[n] || {label:a.libelle, years:{}};
+    const yy = map[n].years[y] = map[n].years[y] || {sum:0,qty:0};
+    yy.sum += num(a.prixUnitaire)|| (num(a.prixTotal)/(num(a.quantite)||1));
+    yy.qty += 1;
+  });
+  const produits = Object.entries(map).filter(([_,p])=>Object.keys(p.years).length>=2);
+  let html = `<div class="card"><div class="label" style="margin-bottom:12px">Comparaison de prix entre années</div>`;
+  if(produits.length===0){
+    html += `<div class="hint">Comparaison disponible dès qu'un même produit (même libellé) apparaît sur au moins deux années différentes.</div></div>`;
+    return html;
+  }
+  html += `<label class="field"><span>Produit</span><select id="cmpProd">${
+    produits.map(([n,p])=>`<option value="${esc(n)}">${esc(p.label)}</option>`).join("")
+  }</select></label><div id="cmpResult"></div></div>`;
+  return html;
+}
+function renderComparaison(){
+  const sel = $("#cmpProd"); if(!sel) return;
+  const n = sel.value;
+  const map = {};
+  S.articles.forEach(a=>{
+    if(normalise(a.libelle)!==n) return;
+    const y = yearOf(periodeArticle(a)); if(!y) return;
+    const yy = map[y]=map[y]||{sum:0,qty:0};
+    yy.sum += num(a.prixUnitaire)||(num(a.prixTotal)/(num(a.quantite)||1)); yy.qty+=1;
+  });
+  const years = Object.keys(map).sort();
+  const avgs = years.map(y=>({y, avg: map[y].sum/map[y].qty}));
+  let html = `<div class="grid2" style="margin-top:6px">`;
+  avgs.forEach(o=>{ html += `<div class="card" style="margin:0"><div class="label">${o.y}</div><div class="num big" style="font-size:20px">${fmtE(o.avg)}</div><div class="faint" style="font-size:11px">prix unitaire moyen</div></div>`; });
+  html += `</div>`;
+  if(avgs.length>=2){
+    const a0=avgs[0].avg, a1=avgs[avgs.length-1].avg, d=a1-a0, p=a0?Math.round(d/a0*100):0;
+    const cls = d>0?"danger":d<0?"good":"";
+    html += `<div class="row between" style="margin-top:10px"><span class="muted" style="font-size:13px">Évolution ${avgs[0].y} → ${avgs[avgs.length-1].y}</span>
+      <span class="tag ${cls}">${d>0?"+":""}${fmtE(d)} (${p>0?"+":""}${p}%)</span></div>`;
+  }
+  $("#cmpResult").innerHTML = html;
+}
+
+/* ---------- Réglages ---------- */
+function viewReglages(){
+  const s = S.settings;
+  return `<h2 class="view-title">Réglages</h2>
+  <div class="card">
+    <div class="row between"><b>Compte</b><span class="tag teal" style="padding:3px 8px">connecté</span></div>
+    <p class="hint" style="margin:10px 0 12px">${esc(currentUser?currentUser.email:"")}<br>Données synchronisées sur Supabase, partagées avec les comptes du foyer.</p>
+    <button class="btn ghost block sm" id="logout">Se déconnecter</button>
+  </div>
+  <div class="card">
+    <div class="row between"><b>Intelligence artificielle</b>
+      <span class="tag ${s.ai?'teal':''}">${s.ai?'activée':'désactivée'}</span></div>
+    <p class="hint" style="margin:10px 0 14px">L'IA sert uniquement à lire la photo d'un ticket et à en extraire les articles. Tout le reste (budgets, suggestions, analyses) fonctionne sans elle. Désactivée, l'appli reste 100% utilisable en saisie manuelle et hors-ligne.</p>
+    <label class="field"><span>Activer le scan IA</span>
+      <select id="setAi" class="num"><option value="0" ${!s.ai?"selected":""}>Non (saisie manuelle uniquement)</option><option value="1" ${s.ai?"selected":""}>Oui</option></select></label>
+    <label class="field"><span>Clé API Anthropic</span><input id="setKey" type="password" placeholder="sk-ant-..." value="${esc(s.apiKey)}" autocomplete="off"></label>
+    <label class="field"><span>Modèle</span>
+      <select id="setModel" class="num">
+        ${["claude-sonnet-4-6","claude-haiku-4-5-20251001","claude-opus-4-8"].map(m=>`<option ${s.model===m?"selected":""}>${m}</option>`).join("")}
+      </select></label>
+    <p class="hint">La clé est stockée localement dans votre navigateur. Pour un usage partagé, passez par un petit proxy plutôt que d'exposer la clé côté client.</p>
+    <button class="btn primary block" id="saveSettings" style="margin-top:8px">Enregistrer</button>
+  </div>
+  <div class="card">
+    <b>Plafond mensuel des budgets récurrents</b>
+    <p class="hint" style="margin:8px 0 0">Tolérance d'écart ticket : <span class="kbd">${s.tolerance} €</span> entre la somme des articles et le total saisi.</p>
+  </div>
+  <div class="card">
+    <b>Données</b>
+    <p class="hint" style="margin:8px 0 12px">L'export télécharge une sauvegarde JSON. L'import (ex : depuis l'ancienne version localStorage) réinjecte les données dans la base.</p>
+    <div class="grid2">
+      <button class="btn sm" id="exportData">Exporter (JSON)</button>
+      <button class="btn sm" id="importData">Importer en base</button>
+    </div>
+    <input type="file" id="importFile" accept="application/json" style="display:none">
+    <button class="btn danger block sm" id="resetData" style="margin-top:10px">Vider toutes les données</button>
+  </div>
+  <p class="hint" style="text-align:center">BudgetIA · base de données Supabase</p>`;
+}
+
+function emptyState(ic,titre,txt,btnLabel,btnId){
+  return `<div class="empty"><div class="ic">${ic}</div><h4>${titre}</h4>
+    ${txt?`<div class="hint" style="max-width:280px;margin:0 auto">${txt}</div>`:""}
+    ${btnLabel?`<button class="btn primary" id="${btnId}" style="margin-top:18px">${btnLabel}</button>`:""}</div>`;
+}
+
+/* ---------- Modales ---------- */
+function openSheet(html){
+  $("#modal").innerHTML = `<div class="overlay" id="overlay"><div class="sheet"><div class="sheet-grip"></div>${html}</div></div>`;
+  $("#overlay").addEventListener("click", e=>{ if(e.target.id==="overlay") closeSheet(); });
+}
+function closeSheet(){ $("#modal").innerHTML=""; }
+
+/* --- Budget --- */
+function newBudgetSheet(b){
+  b = b || {id:"", nom:"", type:"recurrent", periodicite:"mensuel", alloue:"", couleur:"#2dd4bf", desc:"", statut:"ouvert"};
+  const isEdit = !!b.id;
+  openSheet(`<h3>${isEdit?"Modifier le budget":"Nouveau budget"}</h3>
+    <label class="field"><span>Nom</span><input id="bNom" value="${esc(b.nom)}" placeholder="Ex : Rénovation chambre parentale"></label>
+    <label class="field"><span>Type</span>
+      <div class="seg" id="bTypeSeg">
+        <button data-t="ponctuel" class="${b.type==='ponctuel'?'on':''}">Projet ponctuel</button>
+        <button data-t="recurrent" class="${b.type==='recurrent'?'on':''}">Récurrent</button>
+      </div></label>
+    <input type="hidden" id="bType" value="${b.type}">
+    <label class="field"><span>Montant alloué (€)</span><input id="bAlloue" class="num" inputmode="decimal" value="${b.alloue||""}" placeholder="laisser vide = sans plafond"></label>
+    <label class="field"><span>Couleur</span><input id="bColor" type="color" value="${b.couleur||'#2dd4bf'}" style="height:46px;padding:4px"></label>
+    <label class="field"><span>Description (optionnel)</span><input id="bDesc" value="${esc(b.desc||'')}"></label>
+    <button class="btn primary block" id="bSave">${isEdit?"Enregistrer":"Créer le budget"}</button>
+    ${isEdit?`<div class="grid2" style="margin-top:10px">
+        <button class="btn sm ghost" id="bToggle">${b.statut==='ouvert'?'Clôturer':'Rouvrir'}</button>
+        <button class="btn sm danger" id="bDelete">Supprimer</button></div>`:""}`);
+  $("#bTypeSeg").addEventListener("click",e=>{ const t=e.target.closest("button"); if(!t)return;
+    $("#bTypeSeg").querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===t)); $("#bType").value=t.dataset.t; });
+  $("#bSave").addEventListener("click",async()=>{
+    const nom=$("#bNom").value.trim(); if(!nom) return toast("Donnez un nom au budget","err");
+    const data={ nom, type:$("#bType").value, periodicite:"mensuel",
+      alloue:num($("#bAlloue").value), couleur:$("#bColor").value, desc:$("#bDesc").value.trim() };
+    try{
+      if(isEdit){
+        await dbUpdateBudget(b.id, {nom:data.nom, type:data.type, periodicite:"mensuel", alloue:data.alloue, couleur:data.couleur, description:data.desc});
+        Object.assign(S.budgets.find(x=>x.id===b.id), data);
+      } else {
+        const nb=Object.assign({id:uid2(), statut:"ouvert", debut:todayISO()}, data);
+        await dbInsertBudget(nb); S.budgets.push(nb);
+      }
+      saveSettings(); closeSheet(); render(); toast("Budget enregistré");
+    }catch(e){ toast("Erreur base : "+e.message,"err"); }
+  });
+  if(isEdit){
+    $("#bToggle").addEventListener("click",async()=>{ const bb=S.budgets.find(x=>x.id===b.id); const ns=bb.statut==="ouvert"?"cloture":"ouvert";
+      try{ await dbUpdateBudget(b.id,{statut:ns}); bb.statut=ns; closeSheet(); render(); }catch(e){ toast("Erreur : "+e.message,"err"); } });
+    $("#bDelete").addEventListener("click",async()=>{ if(confirm("Supprimer ce budget ? Les achats liés passent en « non affecté ».")){
+      try{ await dbDeleteBudget(b.id); S.articles.forEach(a=>{ if(a.budgetId===b.id) a.budgetId=""; });
+        S.budgets = S.budgets.filter(x=>x.id!==b.id); closeSheet(); render(); toast("Budget supprimé"); }
+      catch(e){ toast("Erreur : "+e.message,"err"); } } });
+  }
+}
+
+/* --- Achat : nouveau brouillon --- */
+function newDraft(){ return { enseigne:"", date:todayISO(), source:"manuel", articles:[ blankArt() ] }; }
+function blankArt(){ return { id:uid(), libelle:"", quantite:1, prixUnitaire:"", prixTotal:"", budgetId:"", categorieId:"", src:"" }; }
+
+function purchaseSheet(){
+  if(!draft) draft = newDraft();
+  const aiOn = S.settings.ai && S.settings.apiKey;
+  openSheet(`<h3>Nouvel achat</h3>
+    ${aiOn?`<div class="scan-drop" id="scanDrop">📷 <b>Scanner un ticket</b><div class="hint" style="margin-top:4px">Photo ou image — l'IA extrait les articles</div></div>
+      <input type="file" id="scanFile" accept="image/*" capture="environment" style="display:none">
+      <div class="row" style="margin:14px 0 6px"><div style="flex:1;height:1px;background:var(--border)"></div><span class="faint" style="font-size:11px;padding:0 10px">OU SAISIE MANUELLE</span><div style="flex:1;height:1px;background:var(--border)"></div></div>`
+      :`<p class="hint" style="margin-bottom:14px">Saisie manuelle. Pour scanner un ticket, activez l'IA dans les Réglages.</p>`}
+    <div class="grid2">
+      <label class="field" style="margin-bottom:8px"><span>Enseigne</span><input id="dEnseigne" value="${esc(draft.enseigne)}" placeholder="Ex : Leroy Merlin" list="enseigneList"></label>
+      <label class="field" style="margin-bottom:8px"><span>Date</span><input id="dDate" type="date" class="num" value="${draft.date}"></label>
+    </div>
+    <datalist id="enseigneList">${[...new Set(S.tickets.map(t=>t.enseigne).filter(Boolean))].map(e=>`<option>${esc(e)}</option>`).join("")}</datalist>
+    <div class="label" style="margin:14px 0 8px">Articles</div>
+    <div id="artList"></div>
+    <button class="btn ghost block sm" id="addArt">+ Ajouter un article</button>
+    <hr class="sep">
+    <div class="row between" style="margin-bottom:12px"><span class="muted">Total des articles</span><span class="num big" id="draftTotal" style="font-size:20px">${fmtE(0)}</span></div>
+    <button class="btn primary block" id="validatePurchase">Valider l'achat</button>`);
+  if(aiOn){
+    $("#scanDrop").addEventListener("click",()=>$("#scanFile").click());
+    $("#scanFile").addEventListener("change",onScanFile);
+  }
+  $("#dEnseigne").addEventListener("input",e=>{ draft.enseigne=e.target.value; resuggestAll(); });
+  $("#dDate").addEventListener("change",e=>draft.date=e.target.value);
+  $("#addArt").addEventListener("click",()=>{ draft.articles.push(blankArt()); renderArts(); });
+  $("#validatePurchase").addEventListener("click",validatePurchase);
+  renderArts();
+}
+function budgetOptions(sel){
+  return `<option value="">— non affecté —</option>` + budgetsOuverts().map(b=>`<option value="${b.id}" ${sel===b.id?"selected":""}>${esc(b.nom)}</option>`).join("");
+}
+function catOptions(sel){
+  return S.categories.map(c=>`<option value="${c.id}" ${sel===c.id?"selected":""}>${esc(c.nom)}</option>`).join("");
+}
+function renderArts(){
+  const wrap = $("#artList"); if(!wrap) return;
+  wrap.innerHTML = draft.articles.map((a,i)=>`
+    <div class="art" data-i="${i}">
+      <div class="top">
+        <input class="aLib" placeholder="Libellé" value="${esc(a.libelle)}">
+        <input class="aQte num" inputmode="decimal" placeholder="Qté" value="${a.quantite}">
+        <input class="aPT num" inputmode="decimal" placeholder="Prix €" value="${a.prixTotal}">
+      </div>
+      <div class="alloc">
+        <select class="aBudget">${budgetOptions(a.budgetId)}</select>
+        <select class="aCat">${catOptions(a.categorieId)}</select>
+      </div>
+      <div class="row between"><span class="src">${a.src?("↳ "+a.src):""}</span>
+        ${draft.articles.length>1?`<button class="del-x" data-del="${i}">✕</button>`:""}</div>
+    </div>`).join("");
+  wrap.querySelectorAll(".art").forEach(el=>{
+    const i=+el.dataset.i; const a=draft.articles[i];
+    el.querySelector(".aLib").addEventListener("input",e=>{ a.libelle=e.target.value; });
+    el.querySelector(".aLib").addEventListener("blur",e=>{ a.libelle=e.target.value; if(a.libelle && !a._touchedBudget){ applySuggestion(a); renderArts(); } });
+    el.querySelector(".aQte").addEventListener("input",e=>{ a.quantite=e.target.value; recalcArt(a); updateTotal(); });
+    el.querySelector(".aPT").addEventListener("input",e=>{ a.prixTotal=e.target.value; if(num(a.quantite)>0) a.prixUnitaire=num(a.prixTotal)/num(a.quantite); updateTotal(); });
+    el.querySelector(".aBudget").addEventListener("change",e=>{ a.budgetId=e.target.value; a._touchedBudget=true; a.src="choix manuel"; });
+    el.querySelector(".aCat").addEventListener("change",e=>{ a.categorieId=e.target.value; });
+    const del=el.querySelector("[data-del]"); if(del) del.addEventListener("click",()=>{ draft.articles.splice(i,1); renderArts(); updateTotal(); });
+  });
+  updateTotal();
+}
+function recalcArt(a){ if(num(a.quantite)>0 && num(a.prixUnitaire)>0) a.prixTotal = num(a.prixUnitaire)*num(a.quantite); }
+function applySuggestion(a){
+  const s = suggerer(a.libelle, draft.enseigne);
+  if(!a._touchedBudget) a.budgetId = s.budgetId;
+  if(!a.categorieId || a.categorieId==="divers") a.categorieId = s.categorieId;
+  a.src = s.source;
+}
+function resuggestAll(){ draft.articles.forEach(a=>{ if(a.libelle && !a._touchedBudget) applySuggestion(a); }); renderArts(); }
+function updateTotal(){ const el=$("#draftTotal"); if(!el)return; el.textContent = fmtE(draft.articles.reduce((s,a)=>s+num(a.prixTotal),0)); }
+
+async function validatePurchase(){
+  const arts = draft.articles.filter(a=>a.libelle.trim() && num(a.prixTotal)!==0);
+  if(arts.length===0) return toast("Ajoutez au moins un article avec un prix","err");
+  const tId = uid2();
+  const ticket = { id:tId, enseigne:draft.enseigne.trim()||"Achat", date:draft.date, source:draft.source, total:arts.reduce((s,a)=>s+num(a.prixTotal),0) };
+  const rows = arts.map(a=>({ id:uid2(), ticketId:tId, libelle:a.libelle.trim(), quantite:num(a.quantite)||1,
+      prixUnitaire:num(a.prixUnitaire)|| (num(a.prixTotal)/(num(a.quantite)||1)), prixTotal:num(a.prixTotal),
+      budgetId:a.budgetId, categorieId:a.categorieId||"divers" }));
+  try{
+    await dbInsertTicket(ticket);
+    await dbInsertArticles(rows);
+    for(const a of arts){ if(a.budgetId){ const norm=normalise(a.libelle); memoriser(a.libelle, a.budgetId, a.categorieId||"divers"); await dbUpsertMemoire(norm, a.budgetId, a.categorieId||"divers"); } }
+    S.tickets.push(ticket); S.articles.push(...rows);
+    draft=null; closeSheet(); currentTab="achats"; render(); toast("Achat enregistré ✓");
+  }catch(e){ toast("Erreur base : "+e.message,"err"); }
+}
+
+/* --- Détail d'un ticket --- */
+function ticketSheet(tId){
+  const t = S.tickets.find(x=>x.id===tId); if(!t) return;
+  const arts = S.articles.filter(a=>a.ticketId===tId);
+  openSheet(`<h3>${esc(t.enseigne)}</h3>
+    <div class="faint" style="font-size:12px;margin-bottom:14px">${fmtDateFr(t.date)} · ${arts.length} articles · ${t.source}</div>
+    ${arts.map(a=>{ const b=S.budgets.find(x=>x.id===a.budgetId); const c=S.categories.find(x=>x.id===a.categorieId);
+      return `<div class="art" style="margin-bottom:8px"><div class="row between"><b>${esc(a.libelle)}</b><span class="num">${fmtE(a.prixTotal)}</span></div>
+        <div class="row" style="gap:6px;margin-top:6px"><span class="tag" style="padding:2px 7px">${esc(c?c.nom:'—')}</span>
+        <span class="tag ${b?'amber':''}" style="padding:2px 7px">${esc(b?b.nom:'non affecté')}</span></div></div>`; }).join("")}
+    <button class="btn danger block sm" id="delTicket" style="margin-top:12px">Supprimer cet achat</button>`);
+  $("#delTicket").addEventListener("click",async()=>{ if(confirm("Supprimer cet achat et ses articles ?")){
+    try{ await dbDeleteTicket(tId); S.articles = S.articles.filter(a=>a.ticketId!==tId); S.tickets = S.tickets.filter(x=>x.id!==tId);
+      closeSheet(); render(); toast("Achat supprimé"); }catch(e){ toast("Erreur : "+e.message,"err"); } } });
+}
+
+/* ---------- IA : scan de ticket ---------- */
+function onScanFile(e){
+  const file = e.target.files[0]; if(!file) return;
+  const drop = $("#scanDrop"); drop.classList.add("busy"); drop.innerHTML = "⏳ <b>Lecture du ticket…</b>";
+  const reader = new FileReader();
+  reader.onload = async () => {
+    const b64 = reader.result.split(",")[1];
+    const media = file.type || "image/jpeg";
+    try{
+      const data = await scanTicketIA(b64, media);
+      if(data.enseigne) draft.enseigne = data.enseigne;
+      if(data.date && /^\d{4}-\d{2}-\d{2}$/.test(data.date)) draft.date = data.date;
+      draft.source = "scan";
+      const lignes = Array.isArray(data.articles)? data.articles:[];
+      if(lignes.length){
+        draft.articles = lignes.map(l=>{
+          const a = blankArt();
+          a.libelle = String(l.libelle||"").trim();
+          a.quantite = num(l.quantite)||1;
+          a.prixTotal = num(l.prix_total)|| (num(l.prix_unitaire)*(num(l.quantite)||1));
+          a.prixUnitaire = num(l.prix_unitaire)|| (num(l.prix_total)/(num(l.quantite)||1));
+          applySuggestion(a);
+          return a;
+        });
+      }
+      // rouvre la feuille avec les données
+      purchaseSheet();
+      toast(`${lignes.length} article(s) extrait(s) — vérifiez puis validez`);
+    }catch(err){
+      drop.classList.remove("busy");
+      drop.innerHTML = "📷 <b>Scanner un ticket</b><div class='hint' style='margin-top:4px'>Réessayez</div>";
+      toast("Échec du scan : "+(err.message||"erreur"), "err");
+    }
+  };
+  reader.readAsDataURL(file);
+}
+async function scanTicketIA(b64, media){
+  const s = S.settings;
+  const prompt = "Tu lis un ticket de caisse français. Réponds UNIQUEMENT par un objet JSON valide, sans texte ni backticks, au format exact : {\"enseigne\":string|null,\"date\":\"AAAA-MM-JJ\"|null,\"total\":number|null,\"articles\":[{\"libelle\":string,\"quantite\":number,\"prix_unitaire\":number,\"prix_total\":number}]}. Montants en euros, décimales avec un point. Ignore les lignes non-articles (remises globales, total, TVA, rendu monnaie).";
+  const res = await fetch("https://api.anthropic.com/v1/messages",{
+    method:"POST",
+    headers:{ "content-type":"application/json", "x-api-key":s.apiKey, "anthropic-version":"2023-06-01", "anthropic-dangerous-direct-browser-access":"true" },
+    body: JSON.stringify({ model:s.model, max_tokens:1500, messages:[{ role:"user", content:[
+      { type:"image", source:{ type:"base64", media_type:media, data:b64 } },
+      { type:"text", text:prompt }
+    ]}]})
+  });
+  if(!res.ok){ const t=await res.text(); throw new Error("API "+res.status); }
+  const data = await res.json();
+  const txt = (data.content||[]).map(b=>b.type==="text"?b.text:"").join("").replace(/```json|```/g,"").trim();
+  return JSON.parse(txt);
+}
+
+/* ---------- Toast ---------- */
+let toastTimer=null;
+function toast(msg, kind){
+  const el=$("#toast"); el.textContent=msg; el.className="toast show"+(kind==="err"?" err":"");
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.className="toast",2600);
+}
+
+/* ---------- Câblage des vues ---------- */
+function wire(){
+  // dashboard / budgets : tap budget
+  document.querySelectorAll("[data-budget]").forEach(el=>el.addEventListener("click",()=>{
+    const b=S.budgets.find(x=>x.id===el.dataset.budget); if(b) newBudgetSheet(b);
+  }));
+  document.querySelectorAll("[data-ticket]").forEach(el=>el.addEventListener("click",()=>ticketSheet(el.dataset.ticket)));
+  const nb=$("#newBudget"); if(nb) nb.addEventListener("click",()=>newBudgetSheet());
+  const fab2=$("#fab2"); if(fab2) fab2.addEventListener("click",openPurchase);
+  // analyses
+  const at=$("#anaType"); if(at) at.addEventListener("change",e=>{
+    anaPeriode.type=e.target.value;
+    const mois=[...new Set(S.tickets.map(t=>monthOf(t.date)))].filter(Boolean).sort().reverse();
+    const ans=[...new Set(S.tickets.map(t=>yearOf(t.date)))].filter(Boolean).sort().reverse();
+    if(anaPeriode.type==="mois") anaPeriode.key=mois[0]||monthOf(todayISO());
+    else if(anaPeriode.type==="annee") anaPeriode.key=ans[0]||yearOf(todayISO());
+    render();
+  });
+  const ak=$("#anaKey"); if(ak) ak.addEventListener("change",e=>{ anaPeriode.key=e.target.value; render(); });
+  const cp=$("#cmpProd"); if(cp){ cp.addEventListener("change",renderComparaison); renderComparaison(); }
+  // réglages
+  const ss=$("#saveSettings"); if(ss) ss.addEventListener("click",()=>{
+    S.settings.ai = $("#setAi").value==="1";
+    S.settings.apiKey = $("#setKey").value.trim();
+    S.settings.model = $("#setModel").value;
+    saveSettings(); render(); toast("Réglages enregistrés");
+  });
+  const lo=$("#logout"); if(lo) lo.addEventListener("click",async()=>{ await sb.auth.signOut(); location.reload(); });
+  const ed=$("#exportData"); if(ed) ed.addEventListener("click",exportData);
+  const id=$("#importData"); if(id) id.addEventListener("click",()=>$("#importFile").click());
+  const ifi=$("#importFile"); if(ifi) ifi.addEventListener("change",importData);
+  const rd=$("#resetData"); if(rd) rd.addEventListener("click",resetData);
+}
+function openPurchase(){ draft=newDraft(); purchaseSheet(); }
+function exportData(){
+  const dump = {budgets:S.budgets, tickets:S.tickets, articles:S.articles, memoire:S.memoire};
+  const blob=new Blob([JSON.stringify(dump,null,2)],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="budgetia-export.json"; a.click();
+}
+function importData(e){
+  const f=e.target.files[0]; if(!f) return; const r=new FileReader();
+  r.onload=async()=>{ try{
+    const obj=JSON.parse(r.result);
+    if(!obj.budgets||!obj.articles){ return toast("Fichier invalide","err"); }
+    if(!confirm("Importer ces données dans la base ? Les éléments existants sont conservés.")) return;
+    // ids : génère de nouveaux UUID si absents/non-uuid, en gardant le lien ticket<->articles
+    const bMap={}, tMap={};
+    for(const b of obj.budgets){ const nid=uid2(); bMap[b.id]=nid; await dbInsertBudget(Object.assign({},b,{id:nid})); }
+    for(const t of (obj.tickets||[])){ const nid=uid2(); tMap[t.id]=nid; await dbInsertTicket(Object.assign({},t,{id:nid})); }
+    const arts=(obj.articles||[]).map(a=>Object.assign({},a,{id:uid2(), ticketId:tMap[a.ticketId]||a.ticketId, budgetId:bMap[a.budgetId]||""}));
+    await dbInsertArticles(arts);
+    for(const [norm,m] of Object.entries(obj.memoire||{})){ await dbUpsertMemoire(norm, bMap[m.budgetId]||null, m.categorieId); }
+    await dbLoadAll(); render(); toast("Données importées en base");
+  }catch(err){ toast("Échec import : "+(err.message||"erreur"),"err"); } };
+  r.readAsText(f);
+}
+async function resetData(){
+  if(!confirm("Vider TOUTES les données (budgets, achats, mémoire) ? Action irréversible.")) return;
+  try{
+    await sb.from("articles").delete().neq("id","00000000-0000-0000-0000-000000000000");
+    await sb.from("tickets").delete().neq("id","00000000-0000-0000-0000-000000000000");
+    await sb.from("budgets").delete().neq("id","00000000-0000-0000-0000-000000000000");
+    await sb.from("memoire_affectation").delete().neq("libelle_normalise","");
+    await dbLoadAll(); render(); toast("Données vidées");
+  }catch(e){ toast("Erreur : "+e.message,"err"); }
+}
+
+/* ---------- Authentification ---------- */
+function authScreen(msg){
+  $("#app").innerHTML = `<div class="card" style="max-width:380px;margin:8vh auto 0">
+    <div style="text-align:center;margin-bottom:18px"><div style="font-size:30px;font-weight:800">Budget<span style="color:var(--amber)">IA</span></div>
+    <div class="hint" style="margin-top:4px">Connectez-vous pour accéder au budget du foyer</div></div>
+    <label class="field"><span>Email</span><input id="auEmail" type="email" autocomplete="username" placeholder="vous@exemple.fr"></label>
+    <label class="field"><span>Mot de passe</span><input id="auPass" type="password" autocomplete="current-password" placeholder="••••••••"></label>
+    ${msg?`<p class="hint" style="color:var(--danger);margin-bottom:10px">${esc(msg)}</p>`:""}
+    <button class="btn primary block" id="auLogin">Se connecter</button>
+    <button class="btn ghost block sm" id="auSignup" style="margin-top:10px">Créer un compte</button>
+  </div>`;
+  $("#fab").style.display="none"; $("#tabs").style.display="none";
+  const email=()=>$("#auEmail").value.trim(), pass=()=>$("#auPass").value;
+  $("#auLogin").addEventListener("click",async()=>{
+    const {error}=await sb.auth.signInWithPassword({email:email(),password:pass()});
+    if(error) authScreen(error.message); else boot();
+  });
+  $("#auSignup").addEventListener("click",async()=>{
+    const {data,error}=await sb.auth.signUp({email:email(),password:pass()});
+    if(error) authScreen(error.message);
+    else if(data.session) boot();
+    else authScreen("Compte créé. Vérifiez votre email pour confirmer, puis connectez-vous.");
+  });
+}
+function showApp(){ $("#fab").style.display=""; $("#tabs").style.display=""; currentTab="dashboard"; render(); }
+
+async function boot(){
+  if(!configured()){
+    $("#app").innerHTML = `<div class="card" style="max-width:480px;margin:8vh auto 0">
+      <b>Configuration requise</b>
+      <p class="hint" style="margin-top:10px">Renseignez <span class="kbd">SUPABASE_URL</span> et <span class="kbd">SUPABASE_ANON_KEY</span> en haut du script, puis exécutez le schéma SQL fourni. Voir le README.</p></div>`;
+    $("#fab").style.display="none"; $("#tabs").style.display="none"; return;
+  }
+  const {data:{session}} = await sb.auth.getSession();
+  if(!session){ authScreen(); return; }
+  currentUser = session.user;
+  $("#app").innerHTML = `<div class="empty"><div class="ic">⏳</div><h4>Chargement…</h4></div>`;
+  try{ await dbLoadAll(); showApp(); }
+  catch(e){ $("#app").innerHTML = `<div class="card" style="max-width:480px;margin:8vh auto 0"><b>Erreur de chargement</b><p class="hint" style="margin-top:10px">${esc(e.message)}</p><button class="btn ghost block sm" id="retryBoot" style="margin-top:12px">Réessayer</button></div>`; const rb=$("#retryBoot"); if(rb) rb.addEventListener("click",boot); }
+}
+
+/* ---------- Init ---------- */
+$("#tabs").addEventListener("click",e=>{ const b=e.target.closest("button"); if(!b)return; currentTab=b.dataset.tab; render(); });
+$("#fab").addEventListener("click",openPurchase);
+if(configured() && window.supabase){ sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); }
+boot();
+</script>
+</body>
+</html>
